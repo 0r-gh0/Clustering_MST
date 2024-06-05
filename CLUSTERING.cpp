@@ -78,7 +78,14 @@ int main() {
     vector<int> set;
     vector<vector<float>> m, d;
     float cmpt;
-    ifstream fin("input.txt");
+
+    string inputFileName;
+    string outputFileName;
+
+    cout << "Enter the name of the Input file : ";
+    getline(cin, inputFileName);
+
+    ifstream fin(inputFileName);
 
     fin >> n >> dim >> k;
 
@@ -157,7 +164,10 @@ int main() {
         t[i].st = j;
     }
 
-    ofstream fout("output.txt");
+    cout << "Enter the name of the Output file : ";
+    getline(cin, outputFileName);
+
+    ofstream fout(outputFileName);
     for (i = 0; i < n; i++) {
         for (j = 0; j < dim; j++)
             fout << m[i][j] << " ";
