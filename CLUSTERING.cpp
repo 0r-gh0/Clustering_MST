@@ -1,187 +1,170 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <algorithm>
-#include <fstream>
 #include <cstdlib>
+#include <cstdio>
+#include <fstream>
 
-// Structure to represent a point in R^n
-struct Point {
-    std::vector<double> coordinates;
-    int cluster;
-};
+using namespace std;
 
-// Structure to represent an edge between two points with weight
-struct Edge {
-    int src, dest;
-    double weight;
-};
-
-// Structure to represent a subset for union-find
-struct Subset {
-    int parent;
+struct Tree {
     int rank;
+    int parent;
+    int st;
 };
 
-// Function to calculate Euclidean distance between two points
-double CalculateDistance(const Point& p1, const Point& p2, int dimensionality) {
-    double distance = 0;
-    for (int i = 0; i < dimensionality; i++) {
-        distance += std::pow(p1.coordinates[i] - p2.coordinates[i], 2);
-    }
-    return std::sqrt(distance);
-}
+struct Edge {
+    int in;
+    int out;
+    float wght;
+};
 
-// Function to find the subset of an element i
-int Find(std::vector<Subset>& subsets, int i) {
-    if (subsets[i].parent != i)
-        subsets[i].parent = Find(subsets, subsets[i].parent);
-    return subsets[i].parent;
-}
+vector<Tree> t;
+vector<Edge> s;
 
-// Function to perform union of two sets
-void UnionSets(std::vector<Subset>& subsets, int x, int y) {
-    int xroot = Find(subsets, x);
-    int yroot = Find(subsets, y);
+int partition(int i, int j) {
+    int p, q, r;
+    Edge temp;
+    p = (rand() % (j - i + 1)) + i;
+    temp = s[p];
+    s[p] = s[j];
+    s[j] = temp;
 
-    if (subsets[xroot].rank < subsets[yroot].rank)
-        subsets[xroot].parent = yroot;
-    else if (subsets[xroot].rank > subsets[yroot].rank)
-        subsets[yroot].parent = xroot;
-    else {
-        subsets[yroot].parent = xroot;
-        subsets[xroot].rank++;
-    }
-}
-
-// Function to swap two edges
-void exchange(Edge* a, Edge* b) {
-    Edge temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-// Partition function for randomized quicksort
-int partition(std::vector<Edge>& edges, int low, int high) {
-    double pivot = edges[high].weight;
-    int i = low - 1;
-    for (int j = low; j < high; j++) {
-        if (edges[j].weight <= pivot) {
-            i++;
-            exchange(&edges[i], &edges[j]);
+    q = i - 1;
+    for (r = i; r < j; r++) {
+        if (s[r].wght < s[j].wght) {
+            q = q + 1;
+            temp = s[q];
+            s[q] = s[r];
+            s[r] = temp;
         }
     }
-    exchange(&edges[i + 1], &edges[high]);
-    return i + 1;
+    temp = s[q + 1];
+    s[q + 1] = s[j];
+    s[j] = temp;
+    return (q + 1);
 }
 
-// Random partition function
-int rand_part(std::vector<Edge>& edges, int low, int high) {
-    int random = low + std::rand() % (high - low + 1);
-    exchange(&edges[random], &edges[high]);
-    return partition(edges, low, high);
-}
-
-// Randomized quicksort function
-void rand_qsort(std::vector<Edge>& edges, int low, int high) {
-    if (low < high) {
-        int q = rand_part(edges, low, high);
-        rand_qsort(edges, low, q - 1);
-        rand_qsort(edges, q + 1, high);
+void quicksort(int i, int j) {
+    int q;
+    if (i < j) {
+        q = partition(i, j);
+        quicksort(i, q - 1);
+        quicksort(q + 1, j);
     }
 }
 
-// Function to find the minimum spanning tree using Kruskal's algorithm
-void KruskalMST(std::vector<Point>& points, int NumPoints, int dimensionality, int k) {
-    int NumEdges = NumPoints * (NumPoints - 1) / 2;
-    std::vector<Edge> edges(NumEdges);
+int find(int i) {
+    while (i != t[i].parent)
+        i = t[i].parent;
+    return (i);
+}
 
-    // Calculate distances and populate edges
-    int edgeIndex = 0;
-    for (int i = 0; i < NumPoints; i++) {
-        for (int j = i + 1; j < NumPoints; j++) {
-            edges[edgeIndex] = {i, j, CalculateDistance(points[i], points[j], dimensionality)};
-            edgeIndex++;
-        }
+void Union(int i, int j) {
+    int p, q;
+    p = find(i);
+    q = find(j);
+    if (t[p].rank > t[q].rank) {
+        t[q].parent = p;
+    } else {
+        t[p].parent = q;
+        if (t[p].rank == t[q].rank)
+            t[q].rank = t[q].rank + 1;
+    }
+}
+
+int main() {
+    int i, j, l, n, k, dim, e, T, p;
+    vector<int> set;
+    vector<vector<float>> m, d;
+    float cmpt;
+    ifstream fin("input.txt");
+
+    fin >> n >> dim >> k;
+
+    m.resize(n, vector<float>(dim));
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < dim; j++)
+            fin >> m[i][j];
     }
 
-    // Sort edges by weight using randomized quicksort
-    rand_qsort(edges, 0, NumEdges - 1);
+    fin.close();
 
-    // Allocate memory for subsets
-    std::vector<Subset> subsets(NumPoints);
-
-    // Initialize subsets
-    for (int i = 0; i < NumPoints; i++) {
-        subsets[i].parent = i;
-        subsets[i].rank = 0;
+    t.resize(n);
+    for (i = 0; i < n; i++) {
+        t[i].rank = 0;
+        t[i].parent = i;
+        t[i].st = 0;
     }
 
-    int edgeCount = 0;
-    int index = 0;
-    while (edgeCount < NumPoints - 1 - (k - 1)) { // For the k-clustering
-        Edge nextEdge = edges[index++];
-        int x = Find(subsets, nextEdge.src);
-        int y = Find(subsets, nextEdge.dest);
+    e = n * (n - 1) / 2;
+    s.resize(e);
 
-        if (x != y) {
-            UnionSets(subsets, x, y);
-            edgeCount++;
+    d.resize(n, vector<float>(n));
+    for (i = 0; i < n; i++) {
+        d[i][i] = 0;
+        for (j = i + 1; j < n; j++) {
+            cmpt = 0.0;
+            for (l = 0; l < dim; l++)
+                cmpt += pow((m[i][l] - m[j][l]), 2);
+            d[i][j] = sqrt(cmpt);
+            d[j][i] = d[i][j];
         }
     }
 
-    // Assign clusters
-    std::vector<int> ClusRoot(NumPoints, 0);
-    int x = 0; // Cluster-count
-    for (int i = 0; i < NumPoints; i++) {
-        if (ClusRoot[Find(subsets, i)] == 0) {
-            ClusRoot[Find(subsets, i)] = ++x;
-        }
-        points[i].cluster = ClusRoot[Find(subsets, i)];
-    }
-}
-
-int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>\n";
-        return 1;
-    }
-
-    std::ifstream inputFile(argv[1]);
-    if (!inputFile) {
-        std::cerr << "Error: Unable to open input file.\n";
-        return 1;
-    }
-
-    int NumPoints, dimensionality, k;
-    inputFile >> NumPoints >> dimensionality >> k;
-
-    std::vector<Point> points(NumPoints);
-    for (int i = 0; i < NumPoints; i++) {
-        points[i].coordinates.resize(dimensionality);
-        for (int j = 0; j < dimensionality; j++) {
-            inputFile >> points[i].coordinates[j];
+    l = 0;
+    for (i = 0; i < n; i++) {
+        for (j = i + 1; j < n; j++) {
+            s[l].in = i;
+            s[l].out = j;
+            s[l].wght = d[i][j];
+            l++;
         }
     }
-    inputFile.close();
 
-    // Find clusters using MST
-    KruskalMST(points, NumPoints, dimensionality, k);
+    quicksort(0, l - 1);
 
-    std::ofstream outputFile(argv[2]);
-    if (!outputFile) {
-        std::cerr << "Error: Unable to open output file.\n";
-        return 1;
-    }
-
-    // Write points with cluster names to output file
-    for (const auto& point : points) {
-        for (const auto& coord : point.coordinates) {
-            outputFile << coord << " ";
+    i = 0;
+    T = 0;
+    while (T < (n - k)) {
+        if (find(s[i].in) != find(s[i].out)) {
+            Union(s[i].in, s[i].out);
+            T = T + 1;
         }
-        outputFile << point.cluster << "\n";
+        i = i + 1;
     }
-    outputFile.close();
+
+    set.resize(k, -1);
+    l = 0;
+    for (i = 0; i < n; i++) {
+        p = find(i);
+        for (j = 0; j < k; j++) {
+            if (set[j] == p)
+                break;
+        }
+        if (j == k) {
+            set[l] = p;
+            l++;
+        }
+    }
+
+    for (i = 0; i < n; i++) {
+        p = find(i);
+        for (j = 0; j < k; j++) {
+            if (set[j] == p)
+                break;
+        }
+        t[i].st = j;
+    }
+
+    ofstream fout("output.txt");
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < dim; j++)
+            fout << m[i][j] << " ";
+        fout << "--> " << (t[i].st + 1) << endl;
+    }
+
+    fout.close();
 
     return 0;
 }
